@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        input {
+            border: 1px solid #d9d9d9;
+            padding: 4px 8px;
+            outline: none;
+            width: 50px;
+        }
+
+        .tips {
+            display: flex;
+            align-items: center;
+        }
+
+        label,
+        label input {
+            cursor: pointer;
+            width: 16px;
+        }
+
+        img {
+            cursor: pointer;
+        }
+
+        span + span {
+            margin-left: 32px;
+        }
+    </style>
+</head>
+
+<body>
+    <div>【原图片】</div>
+    <img id="img" src="./github.png" width="716" height="186" />
+    <div>【像素化】</div>
+    <canvas id="canvas"></canvas>
+    <div class="tips">
+        <span>像素块大小: <input id="input" /> px </span>
+        <span>开启栅格阈值: <input id="inputTh" /> px </span>
+        <span>
+            <label for="checkbox">锐化<input id='checkbox' type="checkbox" /></label>
+        </span>
+    </div>
+
+    <script>
+        let enableSharp = false // 开启锐化
+        let threshold = 4   // 开启栅格阈值
+        let blockSize = 6   // 像素块大小
+
+        const $ = id => document.getElementById(id)
+        const $$ = tagName => document.createElement(tagName)
+        const img = $('img')
+        const width = img.width;
+        const height = img.height;
+
+        // 用于渲染的canvas
+        const canvas = $('canvas')
+        const ctx = canvas.getContext('2d')
+
+        // 用于获取imageData的临时canvas
+        const tempCanvas = $$('canvas')
+        const tempCtx = tempCanvas.getContext('2d')
+
+
+        img.onload = () => render()
+
+        function render () {
+            transform({ ctx, width, height, dom: img, enableSharp, blockSize, threshold })
+        }
+
+        // 图片转像素块形式
+        function transform({ ctx, width, height, dom, enableSharp = false, blockSize = 6, threshold = 4 }) {
+            initCanvas(width, height)
+            const BLOCK_SIZE = blockSize   // 像素块大小
+            const BLOCK_X = width / BLOCK_SIZE
+            const BLOCK_Y = height / BLOCK_SIZE
+
+            tempCtx.drawImage(dom, 0, 0, width, height)
+            const { data } = tempCtx.getImageData(0, 0, width, height)
+
+            renderBlock()
+            renderBorder(threshold)
+
+            function renderBlock() {
+                // 获取区域块g值
+                function getBlockG(x, y, enableSharp) {
+                    if (enableSharp) {
+                        // 锐化
+                        const index = (x + width * y) * 4
+                        return data[index + 1];
+                    }
+
+                    // 平滑（取块平均值）
+                    let value = 0
+                    for (let i = x; i < x + BLOCK_SIZE; i++) {
+                        for (let j = y; j < y + BLOCK_SIZE; j++) {
+                            const index = (i + width * j) * 4
+                            value += data[index + 1]; // rgba: 0r 1g 2b 3a
+                        }
+                    }
+                    return value / (BLOCK_SIZE * BLOCK_SIZE)
+                }
+
+                for (let bx = 0; bx < BLOCK_X; bx++) {
+                    for (let by = 0; by < BLOCK_Y; by++) {
+                        const x = bx * BLOCK_SIZE
+                        const y = by * BLOCK_SIZE
+
+                        // 获取rgba中的g值（区域块的g值）
+                        const g = getBlockG(x, y, enableSharp)
+
+                        // 绘制
+                        ctx.fillStyle = `rgba(0,${g},0,1)`
+                        ctx.fillRect(x, y, x + BLOCK_SIZE, y + BLOCK_SIZE)
+                    }
+                }
+            }
+
+            function renderBorder(threshold = 4) {
+                if (BLOCK_SIZE < threshold) return
+
+                ctx.strokeStyle = 'black'
+                ctx.lineWidth = 1
+
+                // 绘制横线
+                for (let by = 0; by <= BLOCK_Y; by++) {
+                    const sx = 0
+                    const sy = by * BLOCK_SIZE
+                    const ex = width
+                    const ey = sy
+                    ctx.moveTo(sx, sy)
+                    ctx.lineTo(ex, ey)
+                }
+
+                // 绘制竖线
+                for (let bx = 0; bx <= BLOCK_X; bx++) {
+                    const sx = bx * BLOCK_SIZE
+                    const sy = 0
+                    const ex = sx
+                    const ey = height
+                    ctx.moveTo(sx, sy)
+                    ctx.lineTo(ex, ey)
+                }
+                ctx.stroke();
+            }
+        }
+
+        function initCanvas(width, height) {
+            function setCanvasSize(canvas, width, height) {
+                canvas.width = width
+                canvas.height = height
+                canvas.style.width = `${width}px`
+                canvas.style.height = `${height}px`
+                canvas.style.background = 'black'
+            }
+            setCanvasSize(canvas, width, height)
+            setCanvasSize(tempCanvas, width, height)
+        }
+    </script>
+
+    <script>
+        // 调试参数代码
+        const input = $('input')
+        const inputTh = $('inputTh')
+        const checkbox = $('checkbox')
+
+        function getInputValue (v) {
+            if (!v) return 1
+
+            for (let i = 0; i < v.length; i++) {
+                if (!(v[i] >= '0' && v[i] <= '9')) {
+                   return 1
+                }
+            }
+
+            const value = Number(v) || 1
+            return value > Math.min(width, height)
+                ? Math.min(width, height)
+                : value 
+        }
+
+        input.value = blockSize
+        input.addEventListener('input', function (e) {
+            blockSize = getInputValue(e.target.value)
+            this.value = blockSize
+            render()
+        })
+
+        inputTh.value = threshold
+        inputTh.addEventListener('input', function (e) {
+            threshold = getInputValue(e.target.value)
+            this.value = threshold
+            render()
+        })
+
+        checkbox.addEventListener('click', function (e) {
+            enableSharp = this.checked
+            render()
+        })
+
+        img.addEventListener('click', e => {
+            const fileInput = $$('input')
+            fileInput.type = 'file'
+            fileInput.accept = '.jpg,.png'
+            fileInput.click()
+            fileInput.addEventListener('change', function (e) {
+                const file = this.files?.[0]
+
+                const fileToDataUrl = async file => {
+                    return new Promise(resolve => {
+                        const reader = new FileReader()
+                        reader.readAsDataURL(file)
+                        reader.onload = () => resolve(reader.result)
+                    })
+                }
+
+                const getImgSize = async (url) => {
+                    return new Promise(resolve => {
+                        let img = $$('img')
+                        img.src = url
+                        img.onload = () => {
+                            resolve({
+                                width: img.width,
+                                height: img.height
+                            })
+                            img = null
+                        }
+                    })
+                }
+
+                fileToDataUrl(file).then(dataUrl => {
+                    getImgSize(dataUrl).then(size => {
+                        img.src = dataUrl
+                        blockSize = 6
+                        input.value = blockSize
+                        // 接下来会在img.onload里面更新
+                    })
+                })
+            })
+        })
+    </script>
+</body>
+
+</html>
