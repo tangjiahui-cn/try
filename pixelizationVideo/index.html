@@ -38,21 +38,21 @@
 
     <div style="display: flex;align-items: center;">
         <video id='video' style="object-fit: fill;" muted controls autoplay crossorigin="anonymous" width="500"
-            height="300"></video>
+            height="300">
+        </video>
         <div style="width: 100px;text-align: center;">
-            <div>源视频 <- </div>
-                    <div>像素化 -> </div>
-            </div>
-            <canvas id="canvas" width="500" height="300"></canvas>
+            <div>源视频 &lt;- </div>
+            <div>像素化 -&gt; </div>
         </div>
+        <canvas id="canvas" width="500" height="300"></canvas>
+    </div>
 
-        <div class="tips">
-            <span>像素块大小: <input id="input" /> px </span>
-            <span>开启栅格阈值: <input id="inputTh" /> px </span>
-            <span>
-                <label for="checkbox">锐化<input id='checkbox' type="checkbox" /></label>
-            </span>
-        </div>
+    <div class="tips">
+        <span>像素块大小: <input id="input" /> px </span>
+        <span>开启栅格阈值: <input id="inputTh" /> px </span>
+        <span>
+            <label for="checkbox">锐化<input id='checkbox' type="checkbox" /></label>
+        </span>
     </div>
 
     <script>
