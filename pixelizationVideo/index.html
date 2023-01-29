@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        input {
+            border: 1px solid #d9d9d9;
+            outline: none;
+            padding: 4px 8px;
+            border-radius: 2px;
+        }
+
+        input[type="file"] {
+            cursor: pointer;
+        }
+
+        canvas {
+            background-color: black;
+            width: 500px;
+            height: 300px;
+        }
+
+        div+div {
+            margin-top: 16px;
+        }
+
+        span+span {
+            margin-left: 32px;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        上传文件：
+        <input id='inputEntry' type="file" accept=".mp4,.mkv" />
+    </div>
+
+    <div style="display: flex;align-items: center;">
+        <video id='video' style="object-fit: fill;" muted controls autoplay crossorigin="anonymous" width="500"
+            height="300"></video>
+        <div style="width: 100px;text-align: center;">
+            <div>源视频 <- </div>
+                    <div>像素化 -> </div>
+            </div>
+            <canvas id="canvas" width="500" height="300"></canvas>
+        </div>
+
+        <div class="tips">
+            <span>像素块大小: <input id="input" /> px </span>
+            <span>开启栅格阈值: <input id="inputTh" /> px </span>
+            <span>
+                <label for="checkbox">锐化<input id='checkbox' type="checkbox" /></label>
+            </span>
+        </div>
+    </div>
+
+    <script>
+        let enableSharp = false // 开启锐化
+        let threshold = 4   // 开启栅格阈值
+        let blockSize = 6   // 像素块大小
+        const $ = id => document.getElementById(id)
+        const $$ = tag => document.createElement(tag)
+
+        const inputEntry = $('inputEntry')
+        const video = $('video')
+        const canvas = $('canvas')
+        const ctx = canvas.getContext('2d')
+        const tempCanvas = canvas.cloneNode()
+        const tempCtx = tempCanvas.getContext('2d')
+
+        const width = canvas.width
+        const height = canvas.height
+
+        let animationId = null
+
+        inputEntry.addEventListener('change', function (e) {
+            const file = this.files?.[0]
+            const fileUrl = URL.createObjectURL(file)
+
+            video.src = fileUrl
+            video.addEventListener('playing', function (e) {
+                console.log(' -> playing')
+                render()
+            })
+            video.addEventListener('pause', function (e) {
+                console.log(' -> pause')
+                cancelAnimationFrame(animationId)
+                animationId = null
+            })
+        })
+
+        function render() {
+            console.log('render')
+            transform({ ctx, canvas, tempCtx, width, height, dom: video, enableSharp, threshold, blockSize })
+            animationId = requestAnimationFrame(() => {
+                render()
+            })
+        }
+
+        // 图片转像素块形式
+        function transform({ ctx, canvas, tempCtx, width, height, dom, enableSharp = false, blockSize = 6, threshold = 4 }) {
+            const BLOCK_SIZE = blockSize   // 像素块大小
+            const BLOCK_X = width / BLOCK_SIZE
+            const BLOCK_Y = height / BLOCK_SIZE
+
+            // 重置canvas的大小，以重置画布，消除上次stroke绘制的路径
+            canvas.width = width
+            canvas.height = height
+
+            tempCtx.drawImage(dom, 0, 0, width, height)
+            const { data } = tempCtx.getImageData(0, 0, width, height)
+
+            renderBlock()
+            renderBorder(threshold)
+
+            function renderBlock() {
+                // 获取区域块g值
+                function getBlockG(x, y, enableSharp) {
+                    if (enableSharp) {
+                        // 锐化
+                        const index = (x + width * y) * 4
+                        return data[index + 1];
+                    }
+
+                    // 平滑（取块平均值）
+                    let value = 0
+                    for (let i = x; i < x + BLOCK_SIZE; i++) {
+                        for (let j = y; j < y + BLOCK_SIZE; j++) {
+                            const index = (i + width * j) * 4
+                            value += data[index + 1]; // rgba: 0r 1g 2b 3a
+                        }
+                    }
+                    return value / (BLOCK_SIZE * BLOCK_SIZE)
+                }
+
+                for (let bx = 0; bx < BLOCK_X; bx++) {
+                    for (let by = 0; by < BLOCK_Y; by++) {
+                        const x = bx * BLOCK_SIZE
+                        const y = by * BLOCK_SIZE
+
+                        // 获取rgba中的g值（区域块的g值）
+                        const g = getBlockG(x, y, enableSharp)
+
+                        // 绘制
+                        ctx.fillStyle = `rgba(0,${g},0,1)`
+                        ctx.fillRect(x, y, x + BLOCK_SIZE, y + BLOCK_SIZE)
+                    }
+                }
+            }
+
+            function renderBorder(threshold = 4) {
+                if (BLOCK_SIZE < threshold) return
+
+                ctx.strokeStyle = 'black'
+                ctx.lineWidth = 1
+
+                // 绘制横线
+                for (let by = 0; by <= BLOCK_Y; by++) {
+                    const sx = 0
+                    const sy = by * BLOCK_SIZE
+                    const ex = width
+                    const ey = sy
+                    ctx.moveTo(sx, sy)
+                    ctx.lineTo(ex, ey)
+                }
+
+                // 绘制竖线
+                for (let bx = 0; bx <= BLOCK_X; bx++) {
+                    const sx = bx * BLOCK_SIZE
+                    const sy = 0
+                    const ex = sx
+                    const ey = height
+                    ctx.moveTo(sx, sy)
+                    ctx.lineTo(ex, ey)
+                }
+                ctx.stroke();
+            }
+        }
+    </script>
+
+    <script>
+        // 调试参数代码
+        const input = $('input')
+        const inputTh = $('inputTh')
+        const checkbox = $('checkbox')
+
+        function getInputValue(v) {
+            if (!v) return 1
+
+            for (let i = 0; i < v.length; i++) {
+                if (!(v[i] >= '0' && v[i] <= '9')) {
+                    return 1
+                }
+            }
+
+            const value = Number(v) || 1
+            return value > Math.min(width, height)
+                ? Math.min(width, height)
+                : value
+        }
+
+        input.value = blockSize
+        input.addEventListener('input', function (e) {
+            blockSize = getInputValue(e.target.value)
+            this.value = blockSize
+        })
+
+        inputTh.value = threshold
+        inputTh.addEventListener('input', function (e) {
+            threshold = getInputValue(e.target.value)
+            this.value = threshold
+        })
+
+        checkbox.addEventListener('click', function (e) {
+            enableSharp = this.checked
+        })
+    </script>
+</body>
+
+</html>
