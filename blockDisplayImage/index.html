@@ -230,6 +230,7 @@
                     })
                 }
 
+                // img.src = URL.createObjectURL(file)
                 fileToDataUrl(file).then(dataUrl => {
                     getImgSize(dataUrl).then(size => {
                         img.src = dataUrl
