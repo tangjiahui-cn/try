@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, target-densitydpi=device-dpi" />
+    <style>
+        body {
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        canvas {
+            box-sizing: border-box;
+            border: 1px solid black;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div>
+            <button id="getUrl" onclick="getUrl()">获取图片dataUrl</button>
+        </div>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        // 请使用浏览器的F12-移动端模式
+        let points = []
+        let startPoint = null
+        const canvas = document.getElementById('canvas')
+        const ctx = canvas.getContext('2d')
+        init()
+
+        function getUrl() {
+            console.log(canvas.toDataURL('image/png'))
+        }
+
+        function init(width = 400, height = 800) {
+            canvas.width = width
+            canvas.height = height
+            canvas.style.width = `${width}px`
+            canvas.style.height = `${height}px`
+            canvas.style.background = `transparent`
+            ctx.strokeStyle = 'blue'
+            ctx.lineWidth = 2
+            ctx.lineJoin = 'round'
+            ctx.lineCap = 'round'
+        }
+
+        function getPos(e) {
+            const finger = e?.changedTouches?.[0]
+            return {
+                x: finger?.clientX,
+                y: finger?.clientY
+            }
+        }
+
+        canvas.ontouchstart = function (e) {
+            const pos = getPos(e)
+            points.push(pos)
+            startPoint = pos
+        }
+
+        canvas.ontouchmove = function (e) {
+            points.push(getPos(e))
+
+            if (points.length > 3) {
+                const [p1, p2] = points.slice(-2)
+                const controlPoint = p1
+                const endPoint = {
+                    x: (p1.x + p2.x) / 2,
+                    y: (p1.y + p2.y) / 2,
+                }
+                drawLine(startPoint, controlPoint, endPoint)
+                startPoint = endPoint
+            }
+        }
+
+        canvas.ontouchend = function (e) {
+            points.push(getPos(e))
+
+            if (points.length > 3) {
+                const [controlPoint, endPoint] = points.slice(-2)
+                drawLine(startPoint, controlPoint, endPoint)
+            }
+            startPoint = null
+            points = []
+        }
+
+        function drawLine(startPoint, controlPoint, endPoint) {
+            ctx.beginPath();
+            ctx.moveTo(startPoint.x, startPoint.y);
+            ctx.quadraticCurveTo(controlPoint.x, controlPoint.y, endPoint.x, endPoint.y);
+            ctx.stroke();
+            ctx.closePath();
+        }
+    </script>
+</body>
+
+</html>
