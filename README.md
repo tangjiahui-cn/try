@@ -5,3 +5,4 @@
 - [图片像素化 (pixelization picture)](./pixelizationPicture/)
 - [视频像素化 (pixelization video)](./pixelizationVideo/)
 - [H5画板 (drawBoard)](./drawBoard/)
+- [设备主题色检测 (website-theme-check)](./website-theme-check/)

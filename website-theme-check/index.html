@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>设备主题色检测</title>
+  <style>
+    @media (prefers-color-scheme: dark) {
+      div {
+        color: red;
+      }
+    }
+
+    @media (prefers-color-scheme: light) {
+      div {
+        color: blue;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script>
+    const dom = document.getElementById('root')
+    console.log(isDark())
+    dom.innerHTML = `isDark: ${isDark() ? '是' : '否'}, ` +
+      `isLight: ${isLight() ? '是' : '否'}`
+
+    function isDark() {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
+    }
+
+    function isLight() {
+      return window.matchMedia('(prefers-color-scheme: light)').matches
+    }
+  </script>
+</body>
+
+</html>
